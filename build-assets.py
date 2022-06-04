@@ -214,7 +214,7 @@ def get_asset_hash(assetName):
 def modify_changed(prev_commit, curr_commit):
 	changes = []
 
-	command = "cd magica & git diff --name-only" + " " + str(prev_commit) + " " + str(curr_commit)
+	command = "cd magica && git diff --name-only" + " " + str(prev_commit) + " " + str(curr_commit)
 	changed_output = str(subprocess.check_output(command, shell=True))
 	changed_output = changed_output.replace("b'", "")
 
@@ -327,6 +327,37 @@ def get_modify_changed_files(changes:list) -> list:
 	print(files)
 
 
+# Cleans the output that comes from extracting commit hash
+def clean_git_output(output:string):
+	output = output.replace("b'", "")
+	output = output.replace("\\n'", "")
+	output = output.replace("b'", "")
+	output = output.replace("\\n'", "")
+
+	return output
+
+
+def check_download_asset_diff():
+	newMD5 = ""
+	oldMD5 = ""
+	difference = False
+	root = os.path.dirname(os.path.abspath(__file__))
+	for assetType in assetsTypes:
+		assetName = endpoint_assets_list(assetType).split('/')[-1];
+		if assetType != "CONFIG":
+			get_assets_list(assetType)
+			newMD5 = md5(open(endpoint_assets_list(assetType).split('/')[-1], 'rb').read()).hexdigest()
+			oldMD5 = open(os.path.join(root, 'magica', 'resource', 'download', 'asset', 'master', assetName + ".md5")).read()
+			if newMD5 == oldMD5:
+				print(f'[ASSET LIST DIFF] {assetName} has no changes!')
+			else:
+				difference = True
+				print(f'[ASSET LIST DIFF] {assetName} has changes!')
+				return difference
+	return difference
+
+
+
 
 
 ##############################################
@@ -334,12 +365,14 @@ def get_modify_changed_files(changes:list) -> list:
 # Function executions and flask server
 ##############################################
 # Uncomment for first time run
-first_time_setup()
+#first_time_setup()
 
 #download_repo()
 #modify_all()
 
 #generate_hash_map()
+
+#check_download_asset_diff()
 
 # Servidor que va hacer que actualice el repo 
 server = Flask(__name__)
@@ -354,27 +387,39 @@ def postPull(apiKey):
 	
 	@response.call_on_close
 	def on_close():
-		prev_commit = ""
-		curr_commit = ""
+		if os.path.isfile("hash_map.json"):		# Check if hash_map.json file exists
+			with open("hash_keys.json", "r") as readFile:
+				global key_count
+				key_count = int(readFile.read())
+			with open("hash_map.json", "r") as hash_file:
+				global hash_map
+				hash_map = json.load(hash_file)
+			if(check_download_asset_diff()):	# Compare json.gz files with ones from server
+				first_time_setup()
+			else:
+				prev_commit = ""
+				curr_commit = ""
 
-		if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'magica')):
-			prev_commit = str(subprocess.check_output("cd magica & git rev-parse HEAD", shell=True))
+				if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'magica')):
+					prev_commit = str(subprocess.check_output("cd magica && git rev-parse HEAD", shell=True))
+					prev_commit = clean_git_output(prev_commit)
 
-		# Cleanup command line output
-		curr_commit = str(download_repo())
-		curr_commit = curr_commit.replace("b'", "")
-		curr_commit = curr_commit.replace("\\n'", "")
-		prev_commit = prev_commit.replace("b'", "")
-		prev_commit = prev_commit.replace("\\n'", "")
 
-		if prev_commit != curr_commit:
-			print("[REPO] Difference")
-			modify_changed(prev_commit, curr_commit)
+				# Cleanup command line output
+				curr_commit = str(download_repo())
+				curr_commit = clean_git_output(curr_commit)
+
+				if prev_commit != curr_commit:
+					print("[REPO] Difference")
+					modify_changed(prev_commit, curr_commit)
+				else:
+					print ("[REPO] No changes!")
+					
 		else:
-			print ("[REPO] No changes!")
+			first_time_setup()
 
-		#generate_hash_map()
-		print(get_asset_hash("vo_full_101304-4-18_hca.hca")[0]["index"], get_asset_hash("vo_full_101304-4-18_hca.hca")[0]["assetType"])
+		# Test to see if hash map lookup is working as intended
+		#print(get_asset_hash("vo_full_101304-4-18_hca.hca")[0]["index"], get_asset_hash("vo_full_101304-4-18_hca.hca")[0]["assetType"])
 
 	return response
 
