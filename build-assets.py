@@ -17,9 +17,9 @@ global assetsTypes;
 
 assetsTypes = ["MAIN", "MOVIE_H", "MOVIE_L", "VOICE", "CHAR_LIST", "FULLVOICE", "PROLOGUE_VOICE", "PROLOGUE_MAIN", "CONFIG"]
 
-#######################################################
-# For testing only, will get deleted and reimplemented
-#######################################################
+############################################################
+# Definitions for hash_map and key_count from hash function
+############################################################
 global key_count
 global hash_map
 
