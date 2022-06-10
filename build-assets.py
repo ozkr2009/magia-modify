@@ -161,6 +161,11 @@ def download_repo() -> string:
 # Takes a list of calculated MD5, names, and sizes and replaces the values in the original files
 # Modified version of modify_assets_json()
 def modify_assets_json_hash(assetsModified):
+
+	# Logging to check for bug
+	log_file = open('log_modify_assets_json_hash.log', "w")
+
+
 	root = os.path.dirname(os.path.abspath(__file__))
 	for assetModified in assetsModified:
 		assetModifiedName = assetModified['fileName']
@@ -178,6 +183,7 @@ def modify_assets_json_hash(assetsModified):
 
 			#print(assetInfo)
 			if (assetInfo[0]["file_list"]):
+				print(assetModifiedName)
 				fileAsset = asset["file_list"][assetInfo[0]["file_list_index"]]
 				originalSize = fileAsset['size']
 				modifiedSize = assetModified['fileSize']
@@ -196,6 +202,11 @@ def modify_assets_json_hash(assetsModified):
 				print(f'[{assetModifiedName}] MD5: {modifiedMD5} -> {originalMD5}')
 				
 				asset['md5'] = assetModified['fileMD5']
+		
+		# Flush buffer after every iteration
+		log_file.flush()
+
+	log_file.close()
 
 
 # Gets index and asset type for any input asset name
@@ -258,15 +269,13 @@ def generate_hash_map():
 				index = 0
 				for asset in assets:
 					#print(int(md5(asset["path"].split("/")[-1].encode('utf-8')).hexdigest(), 16)%count)
-					index += 1
 					hash_map[int(md5(asset["path"].split("/")[-1].encode('utf-8')).hexdigest(), 16)%count].append({"assetName": asset["path"].split("/")[-1], "assetType": assetType, "index":index, "file_list":False, "file_list_index": 0})
 					if len(asset["file_list"]) > 1:
 						innerIndex = 0
 						for file_listed in asset["file_list"]:
 							hash_map[int(md5(file_listed["url"].split("/")[-1].encode('utf-8')).hexdigest(), 16)%count].append({"assetName": file_listed["url"].split("/")[-1], "assetType": assetType, "index":index, "file_list":True, "file_list_index": innerIndex})
 							innerIndex += 1
-						
-						#print ("MULTIPLE!", asset["path"].split("/")[-1], assetType)
+					index += 1
 
 	with open("hash_map.json", "w") as write_file:
 		json.dump(hash_map, write_file, indent=4)
